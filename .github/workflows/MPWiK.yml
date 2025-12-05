@@ -1,47 +1,60 @@
+# .github/workflows/MPWiK.yml
 name: MPWiK Facebook Scraper
 
 on:
   schedule:
-    - cron: "0 20 * * *"      # codziennie o 21:00 czasu polskiego (20:00 UTC)
-  workflow_dispatch:         # ręczne uruchomienie z poziomu GitHuba
+    - cron: "0 20 * * *"      # 21:00 Polska = 20:00 UTC
+  workflow_dispatch:
 
 jobs:
-  scrape-mpwik:
+  run-scraper:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - name: Checkout repository
+      - name: Checkout kodu
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
+      - name: Ustaw Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Install Python dependencies
+      - name: Instalacja zależności Python
         run: |
           python -m pip install --upgrade pip
           pip install selenium==4.25.0 requests beautifulsoup4
 
-      # Najlepsze i najprostsze rozwiązanie Chrome + Chromedriver w 2025
-      - name: Install latest Chrome + Chromedriver
-        uses: browserless/chrome@v2
-        # Automatycznie instaluje najnowszego Chrome’a i idealnie dopasowanego Chromedrivera
+      # <<< NAJWAŻNIEJSZA CZĘŚĆ – działa zawsze w 2025 >>>
+      - name: Instalacja najnowszego Google Chrome
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
 
-      - name: Run MPWiK scraper
+      - name: Instalacja dopasowanego Chromedrivera
+        run: |
+          CHROME_VERSION=$(google-chrome --version | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
+          MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1)
+          wget -O /tmp/chromedriver.zip https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip
+          unzip /tmp/chromedriver.zip -d /tmp/
+          sudo mv /tmp/chromedriver-linux64/chromedriver /usr/bin/chromedriver
+          sudo chmod +x /usr/bin/chromedriver
+
+      - name: Uruchom skrypt MPWiK
         env:
           TELEGRAM_BOT_TOKEN: 8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8
           TELEGRAM_CHAT_ID: 1233434142
         run: |
           python MPWiK.py
 
-      # Opcjonalny ping, żebyś wiedział, że bot się uruchomił (nawet gdy nic nie znajdzie)
-      - name: Send alive message to Telegram
+      # Potwierdzenie, że bot się uruchomił (dostaniesz zawsze)
+      - name: Wyślij potwierdzenie na Telegrama
         if: always()
         run: |
           curl -s -X POST "https://api.telegram.org/bot8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8/sendMessage" \
                -d chat_id=1233434142 \
                -d parse_mode=HTML \
-               -d text="<b>MPWiK scraper właśnie się uruchomił</b> %F0%9F%94%8D%0A%F0%9F%97%93%20$(date '+%Y-%m-%d %H:%M') UTC%0A%E2%9C%85 Status: <code>${{ job.status }}</code>"
+               -d text="<b>MPWiK scraper właśnie się wykonał</b> %F0%9F%94%8D%0A%F0%9F%97%93%20$(date '+%Y-%m-%d %H:%M') UTC%0AStatus: ${{ job.status == 'success' && 'OK' || 'BŁĄD' }}"
