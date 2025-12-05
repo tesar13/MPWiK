@@ -2,6 +2,11 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import os
+import time
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 
 TELEGRAM_BOT_TOKEN = "8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8"
 CHAT_ID = "1233434142"
@@ -17,14 +22,7 @@ def send_telegram_message(text: str):
 
 
 def get_today_posts():
-    response = requests.get(FB_URL, headers=HEADERS)
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-import time
-
+    # Start Selenium browser
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--disable-gpu")
@@ -34,10 +32,11 @@ import time
     driver = webdriver.Chrome(options=options)
     driver.get(FB_URL)
 
-    time.sleep(5)
+    time.sleep(5)  # give Facebook time to load
 
     posts = []
 
+    # find all posts
     articles = driver.find_elements(By.CSS_SELECTOR, 'div[role="article"]')
 
     for art in articles:
@@ -45,20 +44,26 @@ import time
             text_block = art.text
             spans = art.find_elements(By.TAG_NAME, "span")
             detected_date = None
+
+            # detect date in spans
             for s in spans:
                 if any(m in s.text for m in ["2023", "2024", "2025", "2026"]):
                     detected_date = s.text.strip()
                     break
+
             if not detected_date:
                 continue
+
             try:
                 post_date = datetime.strptime(detected_date, "%d.%m.%Y")
             except:
                 continue
+
             if post_date.date() == datetime.today().date():
                 posts.append((detected_date, text_block))
             else:
                 break
+
         except Exception:
             continue
 
