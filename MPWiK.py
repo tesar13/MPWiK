@@ -59,7 +59,7 @@ def get_today_posts():
             except:
                 continue
 
-            if post_date.date() == datetime.today().date() - timedelta(days=2)):
+            if post_date.date() == (datetime.today().date() - timedelta(days=2)):
                 posts.append((detected_date, text_block))
             else:
                 break
@@ -77,4 +77,5 @@ if __name__ == "__main__":
 
     for _, text in posts_today:
         send_telegram_message(text)
+
 
