@@ -1,33 +1,47 @@
-name: MPWiK
+name: MPWiK Facebook Scraper
 
 on:
   schedule:
-    - cron: "0 20 * * *"  # 21:00 czasu PL = 20:00 UTC
-  workflow_dispatch:
+    - cron: "0 20 * * *"      # codziennie o 21:00 czasu polskiego (20:00 UTC)
+  workflow_dispatch:         # ręczne uruchomienie z poziomu GitHuba
 
 jobs:
-  run-bot:
+  scrape-mpwik:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Install Chrome
-        uses: browser-actions/setup-chrome@v1
-
-      - name: Install ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-
-      - name: Set Python
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+          cache: 'pip'
 
-      - name: Install Python packages
+      - name: Install Python dependencies
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install selenium==4.25.0 requests beautifulsoup4
 
-      - name: Run bot
+      # Najlepsze i najprostsze rozwiązanie Chrome + Chromedriver w 2025
+      - name: Install latest Chrome + Chromedriver
+        uses: browserless/chrome@v2
+        # Automatycznie instaluje najnowszego Chrome’a i idealnie dopasowanego Chromedrivera
+
+      - name: Run MPWiK scraper
+        env:
+          TELEGRAM_BOT_TOKEN: 8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8
+          TELEGRAM_CHAT_ID: 1233434142
         run: |
           python MPWiK.py
+
+      # Opcjonalny ping, żebyś wiedział, że bot się uruchomił (nawet gdy nic nie znajdzie)
+      - name: Send alive message to Telegram
+        if: always()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8/sendMessage" \
+               -d chat_id=1233434142 \
+               -d parse_mode=HTML \
+               -d text="<b>MPWiK scraper właśnie się uruchomił</b> %F0%9F%94%8D%0A%F0%9F%97%93%20$(date '+%Y-%m-%d %H:%M') UTC%0A%E2%9C%85 Status: <code>${{ job.status }}</code>"
