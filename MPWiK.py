@@ -50,7 +50,7 @@ def parse_relative_date(text):
     text = text.lower().strip()
     today = datetime.today().date()
     
-    if "właśnie" in text or "minut" in text or "godzin" in text and "1" in text:
+    if "właśnie" in text or "min" in text or "godz" in text:
         return today
     elif "wczoraj" in text:
         return today - timedelta(days=1)
@@ -133,3 +133,4 @@ if __name__ == "__main__":
             message = f"<b>MPWiK Myslowice – {date.strftime('%d.%m.%Y')}</b>\n\n{text}"
             send_telegram(message)
             time.sleep(1)  # na wszelki wypadek anty-flood
+
