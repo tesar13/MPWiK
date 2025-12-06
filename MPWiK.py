@@ -1,6 +1,7 @@
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
+from typing import Optional
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -25,11 +26,15 @@ def send_telegram(text: str):
     }
     try:
         requests.post(url, data=payload, timeout=10)
-    except:
+    except Exception:
         pass
 
 
-def parse_relative_date(text: str) -> datetime.date | None:
+def parse_relative_date(text: str) -> Optional[date]:
+    """
+    Parsuje tekst typu '10 godz.', 'wczoraj', '2 dni' itp.
+    Zwraca obiekt date lub None jeśli nie uda się sparsować (starsze niż 3 dni).
+    """
     text = text.lower()
     today = datetime.today().date()
 
@@ -80,27 +85,34 @@ try:
 
     for post in containers:
         try:
-            # 1) wyszukujemy datę posta
-            time_el = post.find_element(
+            # 1) wyszukujemy element z datą posta (klasy FB mogą się zmieniać; ten selektor działa w 2025)
+            time_el = post.find_elements(
                 By.XPATH,
-                ".//span[contains(@class,'x1e558r4')]"
+                ".//span[contains(@class,'x1e558r4') or contains(text(),'godz') or contains(text(),'wczoraj') or contains(text(),'min')]"
             )
-            date_raw = time_el.text.strip()
+            if not time_el:
+                continue
+            date_raw = time_el[0].text.strip()
 
             parsed_date = parse_relative_date(date_raw)
             if parsed_date is None:
                 continue  # post starszy niż 3 dni → pomijamy
 
             # 2) tekst posta
-            text_el = post.find_element(By.XPATH, ".//div[@data-ad-comet-preview='message']")
-            text_content = text_el.text.strip()
+            text_el = post.find_elements(By.XPATH, ".//div[@data-ad-comet-preview='message']")
+            if not text_el:
+                # próbujemy alternatywnie złapać tekst posta
+                text_el = post.find_elements(By.XPATH, ".//div[contains(@class,'x1yztbdb')]")
+                if not text_el:
+                    continue
+            text_content = text_el[0].text.strip()
 
             if len(text_content) < 20:
                 continue
 
             posts.append((parsed_date, text_content))
 
-        except:
+        except Exception:
             continue
 
 finally:
@@ -113,7 +125,7 @@ posts.sort(key=lambda x: x[0], reverse=True)
 if not posts:
     send_telegram("Brak nowych postów z ostatnich 3 dni.")
 else:
-    for date, text in posts:
-        msg = f"<b>MPWiK Mysłowice – {date.strftime('%d.%m.%Y')}</b>\n\n{text}"
+    for date_val, text in posts:
+        msg = f"<b>MPWiK Mysłowice – {date_val.strftime('%d.%m.%Y')}</b>\n\n{text}"
         send_telegram(msg)
         time.sleep(1)
