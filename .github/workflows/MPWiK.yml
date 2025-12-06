@@ -26,7 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install selenium==4.25.0 requests beautifulsoup4
 
-      # <<< NAJWAŻNIEJSZA CZĘŚĆ – działa zawsze w 2025 >>>
+      # Instalacja najnowszego Google Chrome (bez zmian)
       - name: Instalacja najnowszego Google Chrome
         run: |
           wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
@@ -34,14 +34,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
 
-      - name: Instalacja dopasowanego Chromedrivera
+      # POPRAWIONA SEKCJA – automatycznie pobiera najnowszego Chromedrivera z JSON Google
+      - name: Instalacja najnowszego Chromedrivera (automatycznie)
         run: |
-          CHROME_VERSION=$(google-chrome --version | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
-          MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1)
-          wget -O /tmp/chromedriver.zip https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip
-          unzip /tmp/chromedriver.zip -d /tmp/
+          # Pobierz najnowszego stable Chromedrivera z oficjalnego JSON
+          CHROME_JSON=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json)
+          DOWNLOAD_URL=$(echo $CHROME_JSON | grep -o '"chromedriver-linux64"' | sed 's/.*: "//; s/",.*//' | head -1)
+          ZIP_FILE=$(basename $DOWNLOAD_URL)
+          
+          # Pobierz i zainstaluj
+          wget -O /tmp/$ZIP_FILE $DOWNLOAD_URL
+          unzip /tmp/$ZIP_FILE -d /tmp/
           sudo mv /tmp/chromedriver-linux64/chromedriver /usr/bin/chromedriver
           sudo chmod +x /usr/bin/chromedriver
+          rm /tmp/$ZIP_FILE
+          
+          # Sprawdź wersje dla logów
+          echo "Chrome version: $(google-chrome --version)"
+          echo "Chromedriver version: $(chromedriver --version)"
 
       - name: Uruchom skrypt MPWiK
         env:
@@ -50,11 +60,11 @@ jobs:
         run: |
           python MPWiK.py
 
-      # Potwierdzenie, że bot się uruchomił (dostaniesz zawsze)
+      # Potwierdzenie, że bot się uruchomił (zawsze)
       - name: Wyślij potwierdzenie na Telegrama
         if: always()
         run: |
           curl -s -X POST "https://api.telegram.org/bot8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8/sendMessage" \
                -d chat_id=1233434142 \
                -d parse_mode=HTML \
-               -d text="<b>MPWiK scraper właśnie się wykonał</b> %F0%9F%94%8D%0A%F0%9F%97%93%20$(date '+%Y-%m-%d %H:%M') UTC%0AStatus: ${{ job.status == 'success' && 'OK' || 'BŁĄD' }}"
+               -d text="<b>MPWiK scraper właśnie się wykonał</b> 🔄\n📅 $(date '+%Y-%m-%d %H:%M') UTC\nStatus: ${{ job.status == 'success' && '✅ OK' || '❌ BŁĄD' }}"
