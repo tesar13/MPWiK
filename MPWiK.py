@@ -16,7 +16,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8457272120:AAG4b8uvOG2gb20
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "1233434142")
 
 # ←←← TU ZMIENIAJ URL (tylko ta jedna linijka!) ←←←
-FB_URL = "https://www.facebook.com/mpwik.myslowice"
+FB_URL = "https://www.facebook.com/ZiemiaChrzanowska"
 #FB_URL = "https://www.facebook.com/inna.strona.do.testow"   # odkomentuj do testów
 
 # === Telegram ===
@@ -124,3 +124,4 @@ else:
         msg = f"<b>MPWiK Mysłowice – {date.strftime('%d.%m.%Y')}</b>\n\n{text}"
         send_telegram(msg)
         time.sleep(1.5)   # anty-flood Telegram
+
