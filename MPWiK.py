@@ -1,7 +1,6 @@
 import os
 import time
-from datetime import datetime, date, timedelta
-from typing import Optional
+from datetime import datetime
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -9,11 +8,12 @@ from selenium.webdriver.common.by import By
 
 import requests
 
-# === KONFIGURACJA ===
+# == KONFIGURACJA ==
 TELEGRAM_BOT_TOKEN = "8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8"
 CHAT_ID = "1233434142"
 
-FB_URL = "https://www.facebook.com/ZiemiaChrzanowska"
+FB_URL = "https://www.facebook.com/mpwik.myslowice"
+LAST_POST_FILE = "last_post.txt"
 
 
 def send_telegram(text: str):
@@ -30,24 +30,16 @@ def send_telegram(text: str):
         pass
 
 
-def parse_relative_date(text: str) -> Optional[date]:
-    """
-    Parsuje tekst typu '10 godz.', 'wczoraj', '2 dni' itp.
-    Zwraca obiekt date lub None jeśli nie uda się sparsować (starsze niż 3 dni).
-    """
-    text = text.lower()
-    today = datetime.today().date()
+def load_last_post():
+    if not os.path.exists(LAST_POST_FILE):
+        return None
+    with open(LAST_POST_FILE, "r", encoding="utf-8") as f:
+        return f.read().strip()
 
-    if any(x in text for x in ["min", "sek", "godz", "właśnie"]):
-        return today
-    if "wczoraj" in text or "1 dzień" in text or "1 dzień temu" in text:
-        return today - timedelta(days=1)
-    if "2 dni" in text or "2 dni temu" in text:
-        return today - timedelta(days=2)
-    if "3 dni" in text or "3 dni temu" in text:
-        return today - timedelta(days=3)
 
-    return None
+def save_last_post(text):
+    with open(LAST_POST_FILE, "w", encoding="utf-8") as f:
+        f.write(text.strip())
 
 
 # === Selenium setup ===
@@ -66,66 +58,32 @@ driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
     "source": "Object.defineProperty(navigator, 'webdriver', {get: () => false});"
 })
 
-posts = []
-
 try:
     driver.get(FB_URL)
     time.sleep(6)
 
-    # scroll
-    for _ in range(10):
+    # Scroll dla pewności
+    for _ in range(3):
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(2)
 
-    # każdy post Facebooka
-    containers = driver.find_elements(
+    # Pobieramy *pierwszy* post na stronie
+    newest_post = driver.find_element(
         By.XPATH,
-        "//div[@role='article']"
+        "(//div[@role='article']//div[@data-ad-comet-preview='message'])[1]"
     )
-
-    for post in containers:
-        try:
-            # 1) wyszukujemy element z datą posta (klasy FB mogą się zmieniać; ten selektor działa w 2025)
-            time_el = post.find_elements(
-                By.XPATH,
-                ".//span[contains(@class,'x1e558r4') or contains(text(),'godz') or contains(text(),'wczoraj') or contains(text(),'min')]"
-            )
-            if not time_el:
-                continue
-            date_raw = time_el[0].text.strip()
-
-            parsed_date = parse_relative_date(date_raw)
-            if parsed_date is None:
-                continue  # post starszy niż 3 dni → pomijamy
-
-            # 2) tekst posta
-            text_el = post.find_elements(By.XPATH, ".//div[@data-ad-comet-preview='message']")
-            if not text_el:
-                # próbujemy alternatywnie złapać tekst posta
-                text_el = post.find_elements(By.XPATH, ".//div[contains(@class,'x1yztbdb')]")
-                if not text_el:
-                    continue
-            text_content = text_el[0].text.strip()
-
-            if len(text_content) < 20:
-                continue
-
-            posts.append((parsed_date, text_content))
-
-        except Exception:
-            continue
+    text = newest_post.text.strip()
 
 finally:
     driver.quit()
 
+# == porównujemy z ostatnio wysłanym ==
+last = load_last_post()
 
-# Sort — najnowsze pierwsze
-posts.sort(key=lambda x: x[0], reverse=True)
-
-if not posts:
-    send_telegram("Brak nowych postów z ostatnich 3 dni.")
+if last == text:
+    print("Brak nowych postów – nie wysyłam nic.")
 else:
-    for date_val, text in posts:
-        msg = f"<b>MPWiK Mysłowice – {date_val.strftime('%d.%m.%Y')}</b>\n\n{text}"
-        send_telegram(msg)
-        time.sleep(1)
+    print("Nowy post wykryty – wysyłam do Telegrama.")
+    msg = f"<b>MPWiK – najnowszy post</b>\n\n{text}"
+    send_telegram(msg)
+    save_last_post(text)
