@@ -55,12 +55,3 @@ jobs:
           TELEGRAM_CHAT_ID: 1233434142
         run: |
           python MPWiK.py
-
-      # Potwierdzenie, że bot się uruchomił (zawsze)
-      - name: Wyślij potwierdzenie na Telegrama
-        if: always()
-        run: |
-          curl -s -X POST "https://api.telegram.org/bot8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8/sendMessage" \
-               -d chat_id=1233434142 \
-               -d parse_mode=HTML \
-               -d text="<b>MPWiK scraper właśnie się wykonał</b> 🔄\n📅 $(date '+%Y-%m-%d %H:%M') UTC\nStatus: ${{ job.status == 'success' && '✅ OK' || '❌ BŁĄD' }}"
