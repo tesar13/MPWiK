@@ -11,7 +11,7 @@ import requests
 # ================== KONFIGURACJA ==================
 TELEGRAM_BOT_TOKEN = "8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8"
 CHAT_ID = "1233434142"  
-FB_URL = "https://www.facebook.com/mpwik.myslowice"
+FB_URL = "https://www.facebook.com/ZiemiaChrzanowska"
 
 chrome_options = Options()
 chrome_options.add_argument("--headless=new")
@@ -101,7 +101,7 @@ def get_recent_posts():
                     continue
 
                 days_ago = (datetime.today().date() - post_date).days
-                if 0 <= days_ago <= 4:  # ostatnie 3 dni (włącznie z dzisiaj)
+                if 0 <= days_ago <= 2:  # ostatnie 3 dni (włącznie z dzisiaj)
                     clean_text = full_text.strip()
                     if clean_text not in [p[1] for p in found_posts]:  # unikamy duplikatów
                         found_posts.append((post_date, clean_text))
@@ -133,6 +133,7 @@ if __name__ == "__main__":
             message = f"<b>MPWiK Myslowice – {date.strftime('%d.%m.%Y')}</b>\n\n{text}"
             send_telegram(message)
             time.sleep(1)  # na wszelki wypadek anty-flood
+
 
 
 
