@@ -1,4 +1,3 @@
-# MPWiK.py – wersja 2025/2026 – działa na każdej publicznej stronie FB
 import os
 import time
 from datetime import datetime, timedelta
@@ -6,25 +5,21 @@ from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 import requests
 
 # === KONFIGURACJA ===
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "1233434142")
+TELEGRAM_BOT_TOKEN = "8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8"
+CHAT_ID = "1233434142"
 
-# ←←← TU ZMIENIAJ URL (tylko ta jedna linijka!) ←←←
 FB_URL = "https://www.facebook.com/ZiemiaChrzanowska"
-#FB_URL = "https://www.facebook.com/inna.strona.do.testow"   # odkomentuj do testów
 
-# === Telegram ===
+
 def send_telegram(text: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
-        "text": text[:4090],       # Telegram max 4096 znaków
+        "text": text[:4090],
         "parse_mode": "HTML",
         "disable_web_page_preview": True
     }
@@ -34,7 +29,23 @@ def send_telegram(text: str):
         pass
 
 
-# === Selenium – maksymalne ukrycie przed detekcją FB ===
+def parse_relative_date(text: str) -> datetime.date | None:
+    text = text.lower()
+    today = datetime.today().date()
+
+    if any(x in text for x in ["min", "sek", "godz", "właśnie"]):
+        return today
+    if "wczoraj" in text or "1 dzień" in text or "1 dzień temu" in text:
+        return today - timedelta(days=1)
+    if "2 dni" in text or "2 dni temu" in text:
+        return today - timedelta(days=2)
+    if "3 dni" in text or "3 dni temu" in text:
+        return today - timedelta(days=3)
+
+    return None
+
+
+# === Selenium setup ===
 options = Options()
 options.add_argument("--headless=new")
 options.add_argument("--no-sandbox")
@@ -44,84 +55,65 @@ options.add_argument("--window-size=1920,1080")
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option("useAutomationExtension", False)
-options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36")
 
 driver = webdriver.Chrome(options=options)
 driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
     "source": "Object.defineProperty(navigator, 'webdriver', {get: () => false});"
 })
 
-posts_found = []
+posts = []
 
 try:
-    print("Otwieram stronę:", FB_URL)
     driver.get(FB_URL)
-    time.sleep(8)
+    time.sleep(6)
 
-    # Czekamy aż się załaduje cokolwiek z postami
-    WebDriverWait(driver, 20).until(
-        EC.presence_of_element_located((By.XPATH, "//div[@data-ad-comet-preview='message'] | //span[contains(text(),'godzin')] | //span[contains(text(),'wczoraj')]"))
+    # scroll
+    for _ in range(10):
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)
+
+    # każdy post Facebooka
+    containers = driver.find_elements(
+        By.XPATH,
+        "//div[@role='article']"
     )
 
-    # Scrollujemy – bardzo ważne!
-    print("Scrolluję w dół…")
-    for _ in range(12):
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2.5)
-
-    # Najnowszy działający selektor 2025/2026
-    post_blocks = driver.find_elements(By.XPATH, 
-        "//div[contains(@class,'x1yztbdb')]//div[@data-ad-comet-preview='message']//span/..")
-
-    print(f"Znaleziono {len(post_blocks)} potencjalnych bloków z tekstem")
-
-    today = datetime.today().date()
-
-    for block in post_blocks:
+    for post in containers:
         try:
-            text = block.text.strip()
-            if len(text) < 30:          # za krótkie – pomijamy
+            # 1) wyszukujemy datę posta
+            time_el = post.find_element(
+                By.XPATH,
+                ".//span[contains(@class,'x1e558r4')]"
+            )
+            date_raw = time_el.text.strip()
+
+            parsed_date = parse_relative_date(date_raw)
+            if parsed_date is None:
+                continue  # post starszy niż 3 dni → pomijamy
+
+            # 2) tekst posta
+            text_el = post.find_element(By.XPATH, ".//div[@data-ad-comet-preview='message']")
+            text_content = text_el.text.strip()
+
+            if len(text_content) < 20:
                 continue
 
-            # Szukamy elementu z datą w okolicy tego bloku
-            parent = block.find_element(By.XPATH, "./ancestor::div[30]")  # szeroki zakres
-            time_elem = parent.find_elements(By.XPATH, ".//abbr | .//span[contains(text(),'godzin')] | .//span[contains(text(),'wczoraj')] | .//span[contains(text(),'dzień')] | .//span[contains(text(),'minut')]")
+            posts.append((parsed_date, text_content))
 
-            if not time_elem:
-                continue
-            date_str = time_elem[0].text.lower()
-
-            # Parsowanie względnej daty
-            if any(x in date_str for x in ["min", "godz", "właśnie"]):
-                post_date = today
-            elif "wczoraj" in date_str or "1 dzie" in date_str:
-                post_date = today - timedelta(days=1)
-            elif "2 dni" in date_str:
-                post_date = today - timedelta(days=2)
-            elif "3 dni" in date_str:
-                post_date = today - timedelta(days=3)
-            else:
-                continue  # starsze niż 3 dni
-
-            # Odfiltruj duplikaty i reklamy
-            if text not in [p[1] for p in posts_found] and "został" not in text.lower()[:30]:
-                posts_found.append((post_date, text))
-                print(f"ZNALEZIONO POST z {post_date}: {text[:100]}…")
-
-        except Exception as e:
+        except:
             continue
 
 finally:
     driver.quit()
 
-# Sortuj od najnowszego i wyślij
-posts_found.sort(reverse=True)
 
-if not posts_found:
-    send_telegram("MPWiK scraper się wykonał – brak nowych postów z ostatnich 3 dni")
+# Sort — najnowsze pierwsze
+posts.sort(key=lambda x: x[0], reverse=True)
+
+if not posts:
+    send_telegram("Brak nowych postów z ostatnich 3 dni.")
 else:
-    for date, text in posts_found:
+    for date, text in posts:
         msg = f"<b>MPWiK Mysłowice – {date.strftime('%d.%m.%Y')}</b>\n\n{text}"
         send_telegram(msg)
-        time.sleep(1.5)   # anty-flood Telegram
-
+        time.sleep(1)
