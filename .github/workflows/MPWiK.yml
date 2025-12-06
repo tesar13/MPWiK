@@ -34,22 +34,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
 
-      # POPRAWIONA SEKCJA – automatycznie pobiera najnowszego Chromedrivera z JSON Google
-      - name: Instalacja najnowszego Chromedrivera (automatycznie)
+      # POPRAWIONA SEKCJA – używa Pythona do parsowania JSON (niezawodne!)
+      - name: Instalacja najnowszego Chromedrivera (via Python JSON)
         run: |
-          # Pobierz najnowszego stable Chromedrivera z oficjalnego JSON
-          CHROME_JSON=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json)
-          DOWNLOAD_URL=$(echo $CHROME_JSON | grep -o '"chromedriver-linux64"' | sed 's/.*: "//; s/",.*//' | head -1)
-          ZIP_FILE=$(basename $DOWNLOAD_URL)
-          
-          # Pobierz i zainstaluj
-          wget -O /tmp/$ZIP_FILE $DOWNLOAD_URL
+          python3 -c "
+          import json
+          import urllib.request
+          url = 'https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json'
+          with urllib.request.urlopen(url) as response:
+              data = json.loads(response.read().decode())
+          stable = data['channels']['stable']
+          downloads = stable['downloads']['chromedriver']['linux64']
+          download_url = downloads['url']
+          print(download_url)
+          "
+          DOWNLOAD_URL=$(python3 -c "import json; import urllib.request; url = 'https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json'; with urllib.request.urlopen(url) as response: data = json.loads(response.read().decode()); stable = data['channels']['stable']; downloads = stable['downloads']['chromedriver']['linux64']; print(downloads['url'])")
+          ZIP_FILE=$(basename "$DOWNLOAD_URL")
+          echo "Pobieram: $DOWNLOAD_URL"
+          wget -O /tmp/$ZIP_FILE "$DOWNLOAD_URL"
           unzip /tmp/$ZIP_FILE -d /tmp/
           sudo mv /tmp/chromedriver-linux64/chromedriver /usr/bin/chromedriver
           sudo chmod +x /usr/bin/chromedriver
           rm /tmp/$ZIP_FILE
-          
-          # Sprawdź wersje dla logów
           echo "Chrome version: $(google-chrome --version)"
           echo "Chromedriver version: $(chromedriver --version)"
 
