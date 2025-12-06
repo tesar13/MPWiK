@@ -13,7 +13,7 @@ TELEGRAM_BOT_TOKEN = "8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8"
 CHAT_ID = "1233434142"
 
 FB_URL = "https://www.facebook.com/mpwik.myslowice"
-LAST_POST_FILE = "last_post.txt"
+LAST_POST_FILE = "last_post.txt"   # plik w repo — musi być commitowany!
 
 
 def send_telegram(text: str):
@@ -68,11 +68,26 @@ try:
         time.sleep(2)
 
     # Pobieramy *pierwszy* post na stronie
-    newest_post = driver.find_element(
+    post = driver.find_element(
         By.XPATH,
-        "(//div[@role='article']//div[@data-ad-comet-preview='message'])[1]"
+        "(//div[@role='article'])[1]"
     )
-    text = newest_post.text.strip()
+
+    # 1) Klikamy w „See more / Wyświetl więcej” jeśli jest
+    try:
+        see_more = post.find_element(By.XPATH, ".//div[@role='button' and contains(., 'See')]")
+        driver.execute_script("arguments[0].click();", see_more)
+        time.sleep(0.5)
+    except:
+        pass
+
+    # 2) Pobieramy pełną treść
+    text_el = post.find_element(
+        By.XPATH,
+        ".//div[@data-ad-comet-preview='message']"
+    )
+
+    text = text_el.text.strip()
 
 finally:
     driver.quit()
