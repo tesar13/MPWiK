@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "0 20 * * *"      # 21:00 Polska = 20:00 UTC
   workflow_dispatch:
+  
+permissions:
+  contents: write
 
 jobs:
   run-scraper:
