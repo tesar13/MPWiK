@@ -99,6 +99,6 @@ if last == text:
     print("Brak nowych postów – nie wysyłam nic.")
 else:
     print("Nowy post wykryty – wysyłam do Telegrama.")
-    msg = f"<b>MPWiK – najnowszy post</b>\n\n{text}"
-    send_telegram(msg)
+    send_telegram(text)
     save_last_post(text)
+
