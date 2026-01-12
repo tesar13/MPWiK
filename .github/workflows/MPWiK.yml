@@ -4,7 +4,7 @@ name: MPWiK Facebook Scraper
 on:
   schedule:
     - cron: "0 20 * * *"      # 21:00 PL = 20:00 UTC
-    - cron: "0 7 * * *"       # 8:00  PL = 7:00  UTC
+    - cron: "30 7 * * *"       # 8:30  PL = 7:30  UTC
   workflow_dispatch:
   
 permissions:
