@@ -137,6 +137,7 @@ if last_hash == current_hash:
     print("Ten sam post → pomijam")
 else:
     print("Nowy / zmieniony post → wysyłka")
-    msg = f"<b>Nowy post MPWiK Mysłowice</b>  •  {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n{text}"
+    msg = f"<b>Nowy post</b>  •  {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n{text}"
     send_telegram(msg)
     save_last_post_hash(current_hash)
+
