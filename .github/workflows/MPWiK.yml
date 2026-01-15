@@ -1,69 +1,60 @@
-# .github/workflows/MPWiK.yml
 name: MPWiK Facebook Scraper
 
 on:
   schedule:
-    - cron: "0 20 * * *"      # 21:00 PL = 20:00 UTC
-    - cron: "30 7 * * *"       # 8:30  PL = 7:30  UTC
-  workflow_dispatch:
-  
-permissions:
-  contents: write
+    - cron: "0 20 * * *"      # codziennie o 21:00 czasu polskiego (20:00 UTC)
+  workflow_dispatch:         # ręczne uruchomienie z poziomu GitHuba
 
 jobs:
-  run-scraper:
+  scrape-mpwik:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - name: Checkout kodu
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Ustaw Python 3.10
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Instalacja zależności Python
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install selenium==4.25.0 requests beautifulsoup4
 
-      # Instalacja najnowszego Google Chrome (bez zmian)
-      - name: Instalacja najnowszego Google Chrome
+      # Najlepsze i najprostsze rozwiązanie Chrome + Chromedriver w 2025
+      - name: Instalacja Chromedrivera pasującego do Chrome 144
         run: |
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-
-      # OSTATECZNA SEKCJA – hardcoded URL z oficjalnego JSON Google (działa zawsze)
-      - name: Instalacja Chromedrivera (hardcoded stable)
-        run: |
-          # Oficjalny URL dla najnowszego stable (grudzień 2025: 143.0.7499.40)
-          DOWNLOAD_URL="https://storage.googleapis.com/chrome-for-testing-public/143.0.7499.40/linux64/chromedriver-linux64.zip"
-          ZIP_FILE="chromedriver-linux64.zip"
-          echo "Pobieram Chromedriver z: $DOWNLOAD_URL"
-          wget -O /tmp/$ZIP_FILE "$DOWNLOAD_URL"
-          unzip /tmp/$ZIP_FILE -d /tmp/
+          CHROME_VER=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
+          DOWNLOAD_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VER}.0/linux64/chromedriver-linux64.zip"
+          echo "Próba: $DOWNLOAD_URL"
+          wget -O /tmp/chromedriver.zip "$DOWNLOAD_URL" || {
+            echo "Brak dokładnej wersji → pobieram najnowszy known-good"
+            LATEST_JSON=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json)
+            LATEST_URL=$(echo "$LATEST_JSON" | grep -o '"url": *"[^"]*chromedriver-linux64.zip"' | head -1 | cut -d'"' -f4)
+            wget -O /tmp/chromedriver.zip "$LATEST_URL"
+          }
+          unzip /tmp/chromedriver.zip -d /tmp/
           sudo mv /tmp/chromedriver-linux64/chromedriver /usr/bin/chromedriver
           sudo chmod +x /usr/bin/chromedriver
-          rm /tmp/$ZIP_FILE
-          echo "Chrome version: $(google-chrome --version)"
-          echo "Chromedriver version: $(chromedriver --version)"
+          chromedriver --version
+          google-chrome --version
 
-      - name: Uruchom skrypt MPWiK
+      - name: Run MPWiK scraper
         env:
           TELEGRAM_BOT_TOKEN: 8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8
           TELEGRAM_CHAT_ID: 1233434142
         run: |
           python MPWiK.py
 
-      - name: Zapisz zaktualizowany last_post.txt do repo
+      # Opcjonalny ping, żebyś wiedział, że bot się uruchomił (nawet gdy nic nie znajdzie)
+      - name: Send alive message to Telegram
+        if: always()
         run: |
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
-          git add last_post.txt
-          git commit -m "Aktualizacja last_post.txt" || echo "Brak zmian"
-          git push
+          curl -s -X POST "https://api.telegram.org/bot8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8/sendMessage" \
+               -d chat_id=1233434142 \
+               -d parse_mode=HTML \
+               -d text="<b>MPWiK scraper właśnie się uruchomił</b> %F0%9F%94%8D%0A%F0%9F%97%93%20$(date '+%Y-%m-%d %H:%M') UTC%0A%E2%9C%85 Status: <code>${{ job.status }}</code>"
