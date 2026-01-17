@@ -1,5 +1,8 @@
 name: MPWiK Facebook Scraper
 
+permissions:
+  contents: write
+
 on:
   schedule:
     - cron: "0 8 * * *"    # 9:00 czasu PL (8:00 UTC)
