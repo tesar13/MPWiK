@@ -2,6 +2,7 @@ name: MPWiK Facebook Scraper
 
 on:
   schedule:
+    - cron: "0 8 * * *"    # 9:00 czasu PL (8:00 UTC)
     - cron: "0 20 * * *"      # codziennie o 21:00 czasu polskiego (20:00 UTC)
   workflow_dispatch:         # ręczne uruchomienie z poziomu GitHuba
 
@@ -49,3 +50,11 @@ jobs:
           TELEGRAM_CHAT_ID: 1233434142
         run: |
           python MPWiK.py
+
+      - name: Commit last_post.txt
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add last_post.txt
+          git diff --cached --quiet || git commit -m "Update last_post"
+          git push
