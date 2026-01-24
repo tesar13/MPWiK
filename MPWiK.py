@@ -12,16 +12,16 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import requests
 
 # ================= KONFIGURACJA =================
-TELEGRAM_BOT_TOKEN = "8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8"
-CHAT_ID = "1233434142"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 FB_URL = "https://www.facebook.com/mpwik.myslowice"
 LAST_POST_FILE = "last_post.txt"          # musi być w repo i commitowany
 
 # ================= Telegram =================
 def send_telegram(text: str):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
-        "chat_id": CHAT_ID,
+        "chat_id": TELEGRAM_CHAT_ID,
         "text": text[:4000],
         "parse_mode": "HTML",
         "disable_web_page_preview": True
@@ -140,4 +140,5 @@ else:
     msg = f"<b>Nowy post</b>  •  {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n{text}"
     send_telegram(msg)
     save_last_post_hash(current_hash)
+
 
