@@ -49,8 +49,8 @@ jobs:
 
       - name: Run MPWiK scraper
         env:
-          TELEGRAM_BOT_TOKEN: 8457272120:AAG4b8uvOG2gb20raSlFP52OikwQ-5L1sT8
-          TELEGRAM_CHAT_ID: 1233434142
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python MPWiK.py
 
