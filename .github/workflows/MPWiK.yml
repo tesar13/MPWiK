@@ -5,9 +5,8 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 8 * * *"    # 9:00 czasu PL (8:00 UTC)
-    - cron: "0 20 * * *"      # codziennie o 21:00 czasu polskiego (20:00 UTC)
-  workflow_dispatch:         # ręczne uruchomienie z poziomu GitHuba
+    - cron: "0 6-20 * * *"   # co godzinę od 7:00 do 21:00 czasu PL (CET)
+  workflow_dispatch:        # ręczne uruchomienie z poziomu GitHuba
 
 jobs:
   scrape-mpwik:
