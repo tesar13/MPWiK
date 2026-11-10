@@ -10,7 +10,7 @@ on:
 
 jobs:
   scrape-mpwik:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -31,20 +31,39 @@ jobs:
       # Najlepsze i najprostsze rozwiązanie Chrome + Chromedriver w 2025
       - name: Instalacja Chromedrivera pasującego do Chrome 144
         run: |
-          CHROME_VER=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
-          DOWNLOAD_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VER}.0/linux64/chromedriver-linux64.zip"
-          echo "Próba: $DOWNLOAD_URL"
-          wget -O /tmp/chromedriver.zip "$DOWNLOAD_URL" || {
-            echo "Brak dokładnej wersji → pobieram najnowszy known-good"
-            LATEST_JSON=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json)
-            LATEST_URL=$(echo "$LATEST_JSON" | grep -o '"url": *"[^"]*chromedriver-linux64.zip"' | head -1 | cut -d'"' -f4)
-            wget -O /tmp/chromedriver.zip "$LATEST_URL"
-          }
-          unzip /tmp/chromedriver.zip -d /tmp/
-          sudo mv /tmp/chromedriver-linux64/chromedriver /usr/bin/chromedriver
+          set -e
+
+          # Odczytujemy wersję zainstalowanego Chrome
+          CHROME_VERSION=$(google-chrome --product-version)
+          echo "Chrome version: $CHROME_VERSION"
+
+          # Pobieramy numer wersji głównej, pobocznej i builda
+          CHROME_BUILD=$(echo "$CHROME_VERSION" | cut -d '.' -f 1-3)
+
+          # Pobieramy pasującą wersję ChromeDriver
+          DRIVER_VERSION=$(curl -fsSL \
+            "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_BUILD}")
+
+          echo "ChromeDriver version: $DRIVER_VERSION"
+
+          # Usuwamy ewentualny stary sterownik
+          sudo rm -f /usr/bin/chromedriver
+
+          # Pobieramy właściwy sterownik
+          wget -q \
+            "https://storage.googleapis.com/chrome-for-testing-public/${DRIVER_VERSION}/linux64/chromedriver-linux64.zip" \
+            -O /tmp/chromedriver.zip
+
+          # Instalujemy
+          unzip -q /tmp/chromedriver.zip -d /tmp/chromedriver
+          sudo mv /tmp/chromedriver/chromedriver-linux64/chromedriver /usr/bin/chromedriver
           sudo chmod +x /usr/bin/chromedriver
-          chromedriver --version
+
+          echo "Installed Chrome:"
           google-chrome --version
+
+          echo "Installed ChromeDriver:"
+          chromedriver --version
 
       - name: Run MPWiK scraper
         env:
